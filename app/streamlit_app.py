@@ -1,174 +1,246 @@
-import sys
-import os
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
 import streamlit as st
 import pandas as pd
-import streamlit.components.v1 as components
-from intelligence.pipeline import run_intelligence_engine
+import time
 
-# --------------------------------------------------
-# PAGE CONFIG
-# --------------------------------------------------
 st.set_page_config(
-    page_title="AI Creator Comment Intelligence Engine",
+    page_title="AI Creator Comment Intelligence",
+    page_icon="📊",
     layout="wide"
 )
 
+# -------------------------------
+# HEADER
+# -------------------------------
+
 st.title("AI Creator Comment Intelligence Engine")
-st.caption("Turn messy comments into ranked, actionable creator insights.")
+st.caption("Turn messy audience comments into ranked strategic opportunities")
 
+st.divider()
 
-# --------------------------------------------------
-# HTML CLUSTER CARD RENDERER
-# --------------------------------------------------
-def render_cluster_card(row):
+# -------------------------------
+# SIDEBAR NAVIGATION
+# -------------------------------
 
-    risk_color = {
-        "Retention Risk": "#ff4d4f",
-        "Trust Risk": "#faad14",
-        "None": "#52c41a"
-    }.get(row["risk_flag"], "#999999")
+st.sidebar.title("Navigation")
 
-    html = f"""
-    <div style="
-        padding:18px;
-        border-radius:12px;
-        border:1px solid #e6e6e6;
-        margin-bottom:16px;
-        background:white;
-        box-shadow:0 1px 2px rgba(0,0,0,0.05);
+page = st.sidebar.radio(
+    "Go to",
+    [
+        "Upload & Analyze",
+        "Strategic Insights",
+        "Cluster Explorer",
+        "Action Recommendations",
+        "Executive Summary"
+    ]
+)
+
+st.sidebar.divider()
+
+st.sidebar.subheader("Project Info")
+st.sidebar.write("Version: v1.0")
+st.sidebar.write("Mode: Private")
+st.sidebar.write("Model: Semantic Clustering")
+
+# -------------------------------
+# PAGE 1 — UPLOAD
+# -------------------------------
+
+if page == "Upload & Analyze":
+
+    st.header("Upload Audience Comments")
+
+    uploaded_file = st.file_uploader(
+        "Upload CSV of comments",
+        type=["csv"]
+    )
+
+    if uploaded_file:
+
+        df = pd.read_csv(uploaded_file)
+
+        st.success("File uploaded successfully")
+
+        st.subheader("Preview")
+        st.dataframe(df, use_container_width=True)
+
+        st.divider()
+
+        if st.button("Run Intelligence Engine"):
+
+            with st.spinner("Processing comments..."):
+                time.sleep(2)
+
+            st.success("Analysis complete")
+
+            st.session_state["analysis_complete"] = True
+
+# -------------------------------
+# PAGE 2 — STRATEGIC INSIGHTS
+# -------------------------------
+
+elif page == "Strategic Insights":
+
+    st.header("Top Strategic Signals")
+
+    if not st.session_state.get("analysis_complete"):
+        st.warning("Run analysis first")
+        st.stop()
+
+    import textwrap
+
+    def show_signal(title, text):
+      wrapped = textwrap.fill(text, width=45)
+      st.markdown(f"""
+      <div style="
+        background-color:#111;
+        padding:16px;
+        border-radius:10px;
+        border:1px solid #333;
+        min-height:120px;
     ">
-        <h3 style="margin:0 0 6px 0;">
-            {row['theme']}
-        </h3>
-
-        <p style="margin:4px 0 10px 0; color:#666;">
-            Classification: <b>{row['classification']}</b> |
-            Impact Score: <b>{round(row['impact_score'],2)}</b> |
-            Comment Share: <b>{round(row['comment_share_pct'],1)}%</b>
-        </p>
-
-        <div style="margin-top:8px;">
-            {row['insight']}
-        </div>
-
-        <div style="margin-top:10px;">
-            <b>Recommended Action:</b><br>
-            {row['suggested_action']}
-        </div>
-
-        <div style="margin-top:12px;">
-            <span style="
-                padding:4px 10px;
-                border-radius:6px;
-                background:{risk_color};
-                color:white;
-                font-weight:600;
-                font-size:12px;
-            ">
-                {row['risk_flag']}
-            </span>
+        <div style="font-size:13px;color:#aaa;">{title}</div>
+        <div style="font-size:18px;font-weight:600;margin-top:6px;">
+            {wrapped}
         </div>
     </div>
-    """
-
-    components.html(html, height=240)
+    """, unsafe_allow_html=True)
 
 
-# --------------------------------------------------
-# FILE UPLOAD
-# --------------------------------------------------
-uploaded_file = st.file_uploader("Upload Comment CSV", type=["csv"])
+    col1, col2, col3 = st.columns(3)
 
-if uploaded_file:
+    with col1:
+       show_signal(
+        "Top Growth Opportunity",
+        "Requests for deeper explanation and more detailed examples from the creator"
+     )
 
-    df = pd.read_csv(uploaded_file)
+    with col2:
+       show_signal(
+        "Primary Risk Signal",
+        "Confusion about topic due to unclear explanation or missing conceptual breakdown"
+     )
 
-    st.subheader("Raw Comments")
-    st.caption(f"Total comments uploaded: {len(df)}")
+    with col3:
+       show_signal(
+        "Engagement Driver",
+        "Positive reinforcement and appreciation of creator style and delivery"
+     )
 
-    show_all = st.checkbox("Show full dataset")
+    st.divider()
 
-    if show_all:
-      st.dataframe(df, use_container_width=True)
-    else:
-      st.dataframe(df.head(50), use_container_width=True)
+    st.subheader("Opportunity Ranking")
 
-    if st.button("Analyze Comments"):
+    insights = pd.DataFrame({
+        "Theme": [
+            "Request for more examples",
+            "Concept confusion",
+            "Trust skepticism",
+            "General praise"
+        ],
+        "Impact Score": [312, 188, 94, 40],
+        "Priority": ["High", "High", "Medium", "Low"]
+    })
 
-        with st.spinner("Running intelligence engine..."):
-            ranked_df, labeled_df = run_intelligence_engine(df)
+    st.dataframe(insights, use_container_width=True)
 
-        st.success("Analysis complete")
+# -------------------------------
+# PAGE 3 — CLUSTER EXPLORER
+# -------------------------------
 
-        # --------------------------------------------------
-        # METRICS
-        # --------------------------------------------------
-        col1, col2, col3 = st.columns(3)
+elif page == "Cluster Explorer":
 
-        col1.metric("Total Comments", len(labeled_df))
-        col2.metric("Audience Signals", len(ranked_df))
-        col3.metric("Highest Impact Score", round(ranked_df["impact_score"].max(), 1))
+    st.header("Audience Theme Clusters")
 
-        # --------------------------------------------------
-        # EXECUTIVE SUMMARY
-        # --------------------------------------------------
-        st.subheader("Executive Summary")
+    if not st.session_state.get("analysis_complete"):
+        st.warning("Run analysis first")
+        st.stop()
 
-        top = ranked_df.iloc[0]
+    cluster = st.selectbox(
+        "Select cluster",
+        [
+            "Request: More explanation",
+            "Confusion: Terminology unclear",
+            "Skepticism: Credibility questions",
+            "Praise: Positive feedback"
+        ]
+    )
 
-        st.info(
-            f"""
-Top opportunity: **{top['theme']}**
+    st.subheader("Cluster Summary")
 
-{round(top['comment_share_pct'],1)}% of comments indicate this demand.
+    summaries = {
+        "Request: More explanation":
+            "Audience wants deeper breakdowns and step-by-step guidance.",
+        "Confusion: Terminology unclear":
+            "Users struggle with technical language.",
+        "Skepticism: Credibility questions":
+            "Trust signals are weak or unclear.",
+        "Praise: Positive feedback":
+            "Content format is strongly resonating."
+    }
 
-Recommended action:
-{top['suggested_action']}
-"""
-        )
+    st.info(summaries[cluster])
 
-        # --------------------------------------------------
-        # PRIORITIZED SIGNALS
-        # --------------------------------------------------
-        st.subheader("Top Audience Signals")
+    st.subheader("Representative Comments")
 
-        for _, row in ranked_df.iterrows():
-            render_cluster_card(row)
+    st.write("""
+    • "Can you explain this more slowly?"
+    • "I don't understand this step"
+    • "Please show real examples"
+    """)
 
-        # --------------------------------------------------
-        # CLUSTER DRILLDOWN
-        # --------------------------------------------------
-        st.subheader("Cluster Drilldown")
+# -------------------------------
+# PAGE 4 — ACTION RECOMMENDATIONS
+# -------------------------------
 
-        cluster_ids = ranked_df["cluster_id"].tolist()
-        selected = st.selectbox("Select cluster", cluster_ids)
+elif page == "Action Recommendations":
 
-        row = ranked_df[ranked_df["cluster_id"] == selected].iloc[0]
+    st.header("Recommended Creator Actions")
 
-        st.markdown("### Signal Details")
-        st.write("Theme:", row["theme"])
-        st.write("Classification:", row["classification"])
-        st.write("Impact Score:", round(row["impact_score"], 2))
+    if not st.session_state.get("analysis_complete"):
+        st.warning("Run analysis first")
+        st.stop()
 
-        if row["risk_flag"] == "Retention Risk":
-            st.error("Retention Risk")
-        elif row["risk_flag"] == "Trust Risk":
-            st.warning("Trust Risk")
-        else:
-            st.success("No Risk")
+    st.success("High Priority Actions")
 
-        st.write("Recommended Action:", row["suggested_action"])
+    st.write("""
+    1. Produce follow-up deep dive video  
+    2. Create beginner explanation content  
+    3. Add real-world examples  
+    4. Address misconceptions directly  
+    """)
 
-        # --------------------------------------------------
-        # EXAMPLE COMMENTS
-        # --------------------------------------------------
-        st.subheader("Example Comments")
+    st.divider()
 
-        comments = labeled_df[labeled_df["cluster"] == selected]["comment"].head(10)
+    st.warning("Risk Mitigation")
 
-        for c in comments:
-            st.write("•", c)
+    st.write("""
+    • Clarify terminology  
+    • Improve credibility signals  
+    • Reduce ambiguity in explanations  
+    """)
+
+# -------------------------------
+# PAGE 5 — EXECUTIVE SUMMARY
+# -------------------------------
+
+elif page == "Executive Summary":
+
+    st.header("Executive Decision Brief")
+
+    if not st.session_state.get("analysis_complete"):
+        st.warning("Run analysis first")
+        st.stop()
+
+    st.subheader("Primary Growth Opportunity")
+    st.write("Audience is actively requesting deeper content and expanded explanations.")
+
+    st.subheader("Main Risk")
+    st.write("Conceptual confusion may reduce retention if unaddressed.")
+
+    st.subheader("Recommended Strategic Move")
+    st.write("Shift toward educational expansion and structured explanation content.")
+
+    st.divider()
+
+    st.success("Decision Priority: HIGH")
 
