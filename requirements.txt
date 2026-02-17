@@ -5,4 +5,8 @@ scikit-learn
 openai
 python-dotenv
 plotly
-
+tqdm
+fastapi
+uvicorn
+redis
+requests

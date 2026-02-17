@@ -1,4 +1,4 @@
-comment_id,comment,likes,sentiment,theme,timestamp,video_id,user_id
+comment_id,comment_text,likes,sentiment,theme,timestamp,video_id,user_id
 1,Please explain the method step by step?,16,0.185,Request for more explanation,2026-02-13 18:55:25.934340,vid_x39ihwkr,user_8dwev6vw
 2,Side thought: screen time is worth testing.,8,-0.052,General discussion,2026-01-16 20:48:37.934340,vid_mfu85w6z,user_2te8n23y
 3,Super clear I've seen on this topic.,18,0.638,Positive feedback / praise,2026-01-31 01:12:19.934340,vid_or3wg1u1,user_b1orqi6o
