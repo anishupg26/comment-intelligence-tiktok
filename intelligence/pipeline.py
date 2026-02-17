@@ -5,8 +5,8 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import CountVectorizer
 
-from intelligence.clustering import cluster_comments
-from intelligence.insights import generate_cluster_insight
+from intelligence.clustering.clusterer import cluster_comments
+from intelligence.insights.insight_generator import generate_cluster_insight
 
 
 # Strategic priority weights

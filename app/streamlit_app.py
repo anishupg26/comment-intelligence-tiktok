@@ -1,12 +1,10 @@
 import os
 import sys
-import time
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
-import requests
 import random
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import MinMaxScaler
@@ -69,6 +67,47 @@ def estimate_impact_metrics(priority):
         "engagement_lift": random.uniform(1, 5),
         "view_growth": random.uniform(0, 3),
         "retention_gain": random.uniform(0, 2)
+    }
+
+
+@st.cache_data(show_spinner=False)
+def run_full_pipeline(df):
+    df_local = df.copy()
+    if "comment_text" in df_local.columns and "comment" not in df_local.columns:
+        df_local = df_local.rename(columns={"comment_text": "comment"})
+
+    results = run_analysis(
+        df_local,
+        text_col="comment",
+        n_clusters=8,
+        batch_size=100
+    )
+
+    impact_scores = results.get("impact_scores", pd.DataFrame()).copy()
+    theme_mapping = {}
+    if not impact_scores.empty and "cluster_id" in impact_scores.columns and "theme" in impact_scores.columns:
+        theme_mapping = dict(
+            zip(
+                impact_scores["cluster_id"].astype(str),
+                impact_scores["theme"].astype(str)
+            )
+        )
+
+    clusters_df = results.get("clusters", pd.DataFrame())
+    cluster_labels = []
+    if not clusters_df.empty and "cluster" in clusters_df.columns:
+        cluster_labels = clusters_df["cluster"].astype(str).tolist()
+
+    actions_df = pd.DataFrame(results.get("top_insights", []))
+
+    return {
+        **results,
+        "embeddings": results.get("embeddings"),
+        "cluster_labels": cluster_labels,
+        "theme_mapping": theme_mapping,
+        "theme_metrics": impact_scores.copy(),
+        "insights_df": impact_scores.copy(),
+        "actions_df": actions_df
     }
 
 
@@ -197,47 +236,7 @@ st.sidebar.write("Model: Semantic Clustering")
 st.sidebar.checkbox("Debug", value=False, key="debug")
 
 
-API_BASE = os.environ.get("API_BASE_URL", "http://localhost:8000")
-
-
-def _serialize_results(payload):
-    results = payload.get("data", payload)
-    if "impact_scores" in results:
-        results["impact_scores"] = pd.DataFrame(results["impact_scores"])
-    if "cluster_metrics" in results:
-        results["cluster_metrics"] = pd.DataFrame(results["cluster_metrics"])
-    if "embeddings_2d" in results:
-        results["embeddings_2d"] = pd.DataFrame(results["embeddings_2d"])
-    if "clusters" in results:
-        results["clusters"] = pd.DataFrame(results["clusters"])
-    return results
-
-
-def upload_dataset(file_bytes, filename):
-    files = {"file": (filename, file_bytes, "text/csv")}
-    response = requests.post(f"{API_BASE}/upload", files=files, timeout=120)
-    response.raise_for_status()
-    return response.json()["dataset_id"]
-
-
-def submit_job(dataset_id):
-    response = requests.post(f"{API_BASE}/process", params={"dataset_id": dataset_id}, timeout=60)
-    response.raise_for_status()
-    return response.json()["job_id"]
-
-
-def get_job_status(job_id):
-    response = requests.get(f"{API_BASE}/status/{job_id}", timeout=30)
-    response.raise_for_status()
-    return response.json()
-
-
-def fetch_results(dataset_id):
-    response = requests.get(f"{API_BASE}/results/{dataset_id}", timeout=60)
-    if response.status_code == 404:
-        return None
-    response.raise_for_status()
-    return _serialize_results(response.json())
+from intelligence.pipeline import run_analysis
 
 
 def render_upload_page():
@@ -408,61 +407,31 @@ def render_upload_page():
         st.divider()
 
         if st.session_state.get("max_rows") != max_rows:
-            st.session_state.pop("dataset_id", None)
-            st.session_state.pop("job_id", None)
             st.session_state.pop("analysis_results", None)
             st.session_state["max_rows"] = max_rows
 
-        if "dataset_id" not in st.session_state:
-            try:
-                upload_df = cleaned_df.head(int(max_rows)) if max_rows else cleaned_df
-                upload_bytes = upload_df.to_csv(index=False).encode()
-                st.session_state["dataset_id"] = upload_dataset(upload_bytes, uploaded_file.name)
-            except Exception as exc:
-                st.error(f"Upload failed: {exc}")
-                return
-
         if st.button("Run Intelligence Engine"):
             try:
-                job_id = submit_job(st.session_state["dataset_id"])
-                st.session_state["job_id"] = job_id
+                upload_df = cleaned_df.head(int(max_rows)) if max_rows else cleaned_df
+                with st.spinner("Analyzing audience intelligence..."):
+                    results = run_full_pipeline(upload_df)
+                st.session_state["results"] = results
+                st.session_state["analysis_results"] = results
+                st.success("Analysis complete")
+
+                perf = results.get("performance", {})
+                if perf:
+                    st.subheader("Performance Metrics")
+                    st.write(f"Total rows processed: {perf.get('total_rows', 0)}")
+                    st.write(f"Total time: {perf.get('total_time', 0):.2f}s")
+                    st.write(f"Rows per second: {perf.get('rows_per_second', 0):.2f}")
+                    if perf.get("embedding_time") is not None:
+                        st.write(f"Embedding time: {perf.get('embedding_time', 0):.2f}s")
+                if perf.get("clustering_time") is not None:
+                    st.write(f"Clustering time: {perf.get('clustering_time', 0):.2f}s")
             except Exception as exc:
-                st.error(f"Failed to start job: {exc}")
+                st.error(f"Processing failed: {exc}")
                 return
-
-        if st.session_state.get("job_id"):
-            status = get_job_status(st.session_state["job_id"])
-            st.info(f"Job status: {status.get('status')}")
-            progress_val = status.get("progress")
-            if progress_val is not None:
-                st.progress(progress_val)
-
-            auto_refresh = st.checkbox("Auto-refresh status", value=True)
-            if st.button("Refresh status"):
-                st.rerun()
-
-            if status.get("status") == "completed":
-                with st.spinner("Fetching results..."):
-                    results = fetch_results(st.session_state["dataset_id"])
-                if results is None:
-                    st.info("Results are still being finalized. Please refresh in a moment.")
-                else:
-                    st.session_state["analysis_results"] = results
-                    st.success("Analysis complete")
-
-                    perf = results.get("performance", {})
-                    if perf:
-                        st.subheader("Performance Metrics")
-                        st.write(f"Total rows processed: {perf.get('total_rows', 0)}")
-                        st.write(f"Total time: {perf.get('total_time', 0):.2f}s")
-                        st.write(f"Rows per second: {perf.get('rows_per_second', 0):.2f}")
-                        if perf.get("embedding_time") is not None:
-                            st.write(f"Embedding time: {perf.get('embedding_time', 0):.2f}s")
-                    if perf.get("clustering_time") is not None:
-                        st.write(f"Clustering time: {perf.get('clustering_time', 0):.2f}s")
-            elif status.get("status") in {"queued", "processing"} and auto_refresh:
-                time.sleep(2)
-                st.rerun()
 
 
 def render_strategic_insights():
