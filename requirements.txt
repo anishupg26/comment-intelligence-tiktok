@@ -6,6 +6,7 @@ openai
 python-dotenv
 plotly
 tqdm
+matplotlib
 fastapi
 uvicorn
 redis
