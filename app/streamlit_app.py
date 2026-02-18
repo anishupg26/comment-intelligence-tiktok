@@ -156,6 +156,86 @@ def generate_executive_report(actions_df):
 
     return "\n".join(report)
 
+
+def render_methodology_and_transparency():
+    st.subheader("How Impact Score is Calculated")
+    st.info(
+        "Impact Score Formula:\n"
+        "Impact Score =\n"
+        "0.4 × Comment Volume\n"
+        "0.4 × Engagement Potential\n"
+        "0.2 × Risk Severity"
+    )
+
+    st.subheader("Example Impact Score Calculation")
+    st.code(
+        "Comment Volume = 80\n"
+        "Engagement Potential = 60\n"
+        "Risk Severity = 40\n\n"
+        "Impact Score =\n"
+        "0.4 × 80 +\n"
+        "0.4 × 60 +\n"
+        "0.2 × 40\n\n"
+        "= 32 + 24 + 8\n"
+        "= 64"
+    )
+
+    st.divider()
+
+    st.subheader("Example Recommended Actions")
+    st.markdown(
+        "- Create a clarification video addressing common confusion\n"
+        "- Pin a comment citing scientific or factual sources\n"
+        "- Add visual diagram or step-by-step breakdown in next video\n"
+        "- Publish FAQ addressing repeated audience questions\n"
+        "- Respond with short explainer comment thread"
+    )
+
+    st.divider()
+
+    st.subheader("System Limitations")
+    st.warning(
+        "Sarcasm or humor may be misinterpreted by clustering.\n"
+        "Spam or bot comments may distort theme detection.\n"
+        "Results should support — not replace — human judgment."
+    )
+
+    st.caption("Embedding Model Used: sentence-transformers (all-MiniLM-L6-v2)")
+
+    st.divider()
+
+    st.subheader("Validation Strategy")
+    st.markdown(
+        "This system can be validated by:\n"
+        "- Manually labeling a sample of 200 comments into themes\n"
+        "- Comparing clustering results with human labels\n"
+        "- Measuring agreement rate and theme precision"
+    )
+
+    st.subheader("Success Metrics")
+    st.markdown(
+        "- Theme precision vs manually labeled dataset\n"
+        "- Reduction in manual comment review time\n"
+        "- Engagement improvement after implementing recommendations"
+    )
+
+    st.divider()
+
+    st.subheader("System Workflow")
+    st.markdown(
+        "Upload Comments\n"
+        "↓\n"
+        "Semantic Clustering\n"
+        "↓\n"
+        "Theme Detection\n"
+        "↓\n"
+        "Strategic Insights\n"
+        "↓\n"
+        "Recommended Actions\n"
+        "↓\n"
+        "Executive Report"
+    )
+
 st.set_page_config(
     page_title="AI Creator Intelligence",
     page_icon="📊",
@@ -1052,6 +1132,9 @@ def render_executive_summary():
         file_name="creator_strategy_report.txt",
         mime="text/plain"
     )
+
+    st.divider()
+    render_methodology_and_transparency()
 
 
 # -------------------------------
